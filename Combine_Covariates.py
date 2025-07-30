@@ -11,5 +11,7 @@
 import Functions
 
 #If everything is set up correctly, you should just have to run:
-Functions.combine_data(2023)
+Functions.combine_data(2021)
 #(for any given year)
+
+#Functions.combine_data_from_np(2020) if NDVI/EVI were processed and saved in Output folder as numpy but an error occurred so the whole dataset was not saved properly
