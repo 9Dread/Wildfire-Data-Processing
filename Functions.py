@@ -243,7 +243,7 @@ def fill_forward(collection, start, end):
     """Return an ImageCollection with one frame per calendar day (for getting GEE covariate data).
        Each day inherits the most recent composite."""
     start = ee.Date(start); end = ee.Date(end)
-    n = end.difference(start, 'day').subtract(1)
+    n = end.difference(start, 'day')
     #list of days
     dates = ee.List.sequence(0, n).map(lambda d:
         start.advance(ee.Number(d), 'day'))
@@ -322,7 +322,7 @@ def gee_NDVI_EVI_year(year, bucket_name):
     Sends all data into a collection of GeoTIFFs (with 1 band per each observation) in the given cloud storage bucket.
     You must do ee.Initialize first
     """
-    file_pref = f'viirs_daily_{year}'
+    file_pref = f'viirs_daily_{year}_1_'
     start = f'{year}-01-01'
     end = f'{year}-12-31'
     #region of interest  (California outline from Census TIGER)
@@ -334,7 +334,6 @@ def gee_NDVI_EVI_year(year, bucket_name):
           .select(['NDVI', 'EVI']) \
           .map(lambda img: img.clip(ca)) #auto–mosaic tiles
     daily = fill_forward(vnp, start, end)
-
     #export to a Cloud Storage (bucket_name) as a Cloud-Optimised TIFF stack
     task = ee.batch.Export.image.toCloudStorage(
         image  = daily.toBands(),
@@ -347,4 +346,3 @@ def gee_NDVI_EVI_year(year, bucket_name):
         formatOptions = {'cloudOptimized': True}
     )
     task.start()
-

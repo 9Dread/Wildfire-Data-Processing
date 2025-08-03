@@ -9,3 +9,5 @@ GEE_NDVI_EVI.py runs an earth engine script to get NDVI and EVI for the given ye
 Combine_Covariates.py combines all of the datasets into the 0.24-degree grid and outputs the netCDF file.
 
 Instructions are provided in each file for setup.
+
+Fully processed grids are in this [drive](https://drive.google.com/drive/folders/1a0kcB2FzTs5uLb4Wnd1M15fE1iyw5Atc?usp=sharing).

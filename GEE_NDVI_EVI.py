@@ -6,7 +6,7 @@ import Functions
 #call this with year, bucket name (mine was my-fire-research)
 #the data will show up in the bucket (with many TIFFs) with the file prefix viirs_daily_{year}
 
-#Note: it takes 1-2 days to fully process the data for one year (VERY slow)
+#Note: it can take 1-2 days to fully process the data for one year (very slow)
 Functions.gee_NDVI_EVI_year(2023, 'my-fire-research')
 
 #These will have to be downloaded from your machine, and then combined into one file. The easiest way to do this is:
