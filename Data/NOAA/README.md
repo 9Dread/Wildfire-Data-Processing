@@ -1,0 +1,2 @@
+# NOAA folder
+For Preproc.py (preparing dataset for modeling), The NDVI, EVI, elevation, fm100, and fm1000 dataset is combined with a few covariates from NOAA. These data were processed to our California grid by another student; the files are in this [drive](https://drive.google.com/drive/folders/12y_q1weaaF-ymQpaso2PBtlecjfMWvdx?usp=sharing). To run Preproc.py, make sure those files are in this folder.

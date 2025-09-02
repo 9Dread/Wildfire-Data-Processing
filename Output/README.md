@@ -1,2 +1,2 @@
 # Output Folder
-The output raster dataset will appear here.
+The output raster datasets (with NDVI, EVI, elevation, fm100, and fm1000 for each year) appear here when Combine_Covariates.py is run correctly. These can alternatively be grabbed from this [drive]([drive](https://drive.google.com/drive/folders/1a0kcB2FzTs5uLb4Wnd1M15fE1iyw5Atc?usp=sharing)) so that the rest of the data processing is reproducible in reasonable time (without running the time-intensive initial processing of the covariates to the grid).

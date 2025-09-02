@@ -346,3 +346,103 @@ def gee_NDVI_EVI_year(year, bucket_name):
         formatOptions = {'cloudOptimized': True}
     )
     task.start()
+
+#HELPERS FOR Preproc.py 
+def aggregate_tif_to_cells(tif_path, grid_gdf_aligned, stats="mean", nodata=None, all_touched=False):
+    """
+    Returns a 1D numpy array of length n_cells with the aggregated value per cell polygon.
+    grid_gdf_aligned must be in the same order as the desired cell order. Used to aggregate
+    fm100 and fm1000 from 12/31/2019 to the desired grid cells.
+    """
+    #compute means in each grid cell
+    zs = zonal_stats(
+        vectors=grid_gdf_aligned.geometry,
+        raster=str(tif_path),
+        stats=stats,
+        nodata=nodata,
+        all_touched=all_touched,
+        geojson_out=False
+    )
+    vals = np.array([d[stats] if d[stats] is not None else np.nan for d in zs], dtype=float)
+    return vals
+
+def ensure_grid_order_matches(ds, grid_gdf, id_col="cell_id"):
+    """
+    Align grid_gdf rows to match ds.cell (xarray ds) coordinate order via 'id' matching.
+    Returns aligned GeoDataFrame and an indexer to reindex any arrays defined on grid_gdf rows.
+    Requires ds to have a 'cell' coordinate (which are ids).
+    """
+    cell_coord = ds["cell"].values
+    #if cell is numeric 0..N-1 and grid_gdf[id_col] matches that sequence, good.
+    #otherwise, treat cell_coord as the ids to align to.
+    #build a mapping from id to row index in grid_gdf
+    id_to_idx = {rid: i for i, rid in enumerate(grid_gdf[id_col].values)}
+    try:
+        idxs = np.array([id_to_idx[rid] for rid in cell_coord], dtype=int)
+    except KeyError as e:
+        raise ValueError(f"Found cell id {e} in ds that does not exist in grid_gdf[{id_col}].")
+    return grid_gdf.iloc[idxs].reset_index(drop=True), idxs
+
+def shift_forward_one_year(old_vals, first_day_value):
+    """
+    old_vals: (time, cell) array for a single year (DataArray values)
+    first_day_value: (cell,) array to insert at index 0
+    returns new_vals with same shape as old_vals, applying forward shift:
+        new[0] = first_day_value
+        new[1:] = old[:-1]
+    """
+    if first_day_value.shape[0] != old_vals.shape[1]:
+        raise ValueError("first_day_value length does not match number of cells.")
+    new_vals = np.empty_like(old_vals)
+    new_vals[0, :] = first_day_value
+    new_vals[1:, :] = old_vals[:-1, :]
+    return new_vals
+
+def grid_to_cell_coords(grid_gdf, metric_crs=False):
+    """
+    Given a GeoDataFrame `grid_gdf` with columns 'cell_id' and 'geometry',
+    returns a NumPy array of shape (C, 2) where each row i is the (x, y)
+    centroid of the cell with cell_id == i. Rows are ordered by ascending cell_id.
+    """
+    #sort by cell_id to ensure consistent ordering
+    gdf_sorted = grid_gdf.sort_values("cell_id")
+    #compute centroids
+    if metric_crs:
+        centroids = gdf_sorted.to_crs(3310).geometry.centroid
+    else:
+        centroids = gdf_sorted.to_crs(3310).geometry.centroid.to_crs(4326)
+    #extract x, y coordinates
+    xs = centroids.x.values
+    ys = centroids.y.values
+    #stack into an (C, 2) array of (x, y) pairs
+    cell_coords = np.stack([xs, ys], axis=1)
+    return cell_coords
+
+#RETURNS SPATIAL GRID WE AGGREGATE COVS TO (this couldve been used for other functions here...
+#but it's only used in Preproc.py; I'm unclean sorry):
+def get_point24deg_grid(drop_missing_cov_cells = False):
+    """
+    Makes the grid (0.24-degree resolution) to which we aggregated our covariates.
+    Four cells have missing covariates (due to resolution issues). These can be dropped.
+    """
+    pad, dx = 0.30, 0.24 #grid dimensions
+    #note that the CA bounding box in epsg4326 is (-124.409591, 32.534156, -114.131211, 42.009518)
+    xmin, xmax = -124.409591-pad, -114.131211+pad
+    ymin, ymax = 32.534156-pad, 42.009518+pad
+    cells = [box(x, y, x+dx, y+dx)               # square cells
+            for x in np.arange(xmin, xmax, dx)
+            for y in np.arange(ymin, ymax, dx)]
+    grid_gdf = gpd.GeoDataFrame({"cell_id": range(len(cells))}, geometry=cells, crs=4326)
+    #california outline
+    #downloading county polygons, "FIPS : 06" is Califirnia
+    ca = (gpd.read_file("https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json")
+      .loc[lambda d: d.id.str.startswith("06")]
+      .to_crs(4326) #ensure same CRS
+      .dissolve()) #single polygon
+    #keep only grid cells that intersect California
+    grid_gdf = grid_gdf.loc[grid_gdf.geometry.intersects(ca.geometry.iloc[0])].reset_index(drop=True)
+    grid_gdf["cell_id"] = grid_gdf.index
+    if(drop_missing_cov_cells):
+        grid_gdf = grid_gdf.drop(index = [71, 439, 461, 521]).reset_index(drop=True)
+        grid_gdf["cell_id"] = grid_gdf.index
+    return grid_gdf
