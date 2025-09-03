@@ -208,13 +208,18 @@ out_pattern = "daily_gridded_NOAA18hr_CA_{year}.nc"
 for y in years:
     in_path = in_dir / in_pattern.format(year=y)
     ds = xr.open_dataset(in_path)
-    ds_daily_18 = ds_clean.sel(time=ds_clean["time"].dt.hour == 18) #use hour 18:00
+
+    ds_daily_18 = ds.sel(time=ds["time"].dt.hour == 18) #use hour 18:00
     ds_daily_18 = ds_daily_18.assign_coords(
         time=ds_daily_18["time"].dt.floor("D")
     ) #reset the datetime to just the calendar date
     out_path = out_dir / out_pattern.format(year = y)
     ds_daily_18.to_netcdf(out_path)
-
+#check:
+for y in years:
+    ds = xr.open_dataset(f"Data/AdjustedOutput/daily_gridded_NOAA18hr_CA_{y}.nc")
+    print(f"({y}) Sizes: ", ds.sizes)
+    print(f"({y}) Number of variables: ", len(ds.variables))
 
 varnames = ['Geopotential height',
  'Particulate matter (coarse)',
