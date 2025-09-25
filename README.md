@@ -12,7 +12,7 @@ Instructions are provided in each file for setup.
 
 Fully processed grids are in this [drive](https://drive.google.com/drive/folders/1a0kcB2FzTs5uLb4Wnd1M15fE1iyw5Atc?usp=sharing).
 
-The rest of the data processing pipeline (Preproc.py) prepares data for wildfire risk modeling in my [Wildfire-Point-Process](https://github.com/9Dread/Wildfire-Point-Process) repository. This includes combining the data with processed NOAA covariates (processed by another student to the same grid). The time resolution of the NOAA covariates is 6 hours. We make two separate datasets: a daily one, which uses covariates at 6am from NOAA; and a 6 hour one, which uses the most recent observation of daily covariates.
+The rest of the data processing pipeline (Preproc.py) prepares data for wildfire risk modeling in my [Wildfire-Point-Process](https://github.com/9Dread/Wildfire-Point-Process) repository. This includes combining the data with processed NOAA covariates (processed by another student to the same grid). The time resolution of the NOAA covariates is 6 hours. I also later aggregated population/household counts (from ACS5) from zip codes to the grid. We make two separate datasets: a daily one, which uses covariates at 6am from NOAA; and a 6 hour one, which uses the most recent observation of daily covariates.
 
 To run Preproc.py, make sure that the Output folder contains all of the fully processed datasets from Combine_Covariates.py. If you would like to download them instead of running the code, the link is above. Also ensure that the NOAA covariates are in Data/NOAA; these can be found at this other [drive](https://drive.google.com/drive/folders/12y_q1weaaF-ymQpaso2PBtlecjfMWvdx?usp=sharing).
 

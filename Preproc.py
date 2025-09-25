@@ -37,6 +37,7 @@ import pandas as pd
 from Functions import get_point24deg_grid, aggregate_tif_to_cells, ensure_grid_order_matches, shift_forward_one_year
 from pathlib import Path
 import numpy as np
+import geopandas as gpd
 
 #FIRST: adjust fm100 and fm1000 forward by one day. as an intermediate step, the adjusted datasets will be
 #put into a new directory, Data/AdjustedOutput
@@ -295,3 +296,84 @@ for y in years:
 with xr.open_dataset("Output_Preprocessed/daily_gridded_CA_2020.nc") as ds_2020:
     ds_dropped = ds_2020.isel(time=slice(1, None)).load() #drop first day, load into memory
 ds_dropped.to_netcdf("Output_Preprocessed/daily_gridded_CA_2020.nc", mode="w")
+
+
+#EXTRA (9/23/2025): Add population/household variables. Static variables from ACS5 2023 estimates. 
+pop = pd.read_csv("Data/population/ca_zcta_acs.csv")
+
+#initial processing of national polygons file to match pop data
+#shapes = gpd.read_file("Data/population/tl_2023_us_zcta520/tl_2023_us_zcta520.shp")
+#pop['zcta_string'] = pop['zcta'].astype(str)
+#shapes = shapes[shapes['ZCTA5CE20'].isin(pop['zcta_string'])]
+#shapes = shapes[['ZCTA5CE20', 'geometry']]
+#shapes = shapes.rename(columns = {'ZCTA5CE20': 'zcta'})
+#shapes['zcta'] = shapes['zcta'].astype(int)
+#shapes.to_file('Data/population/shapefiles/shapes.shp', index = False)
+
+shapes = gpd.read_file('Data/population/shapefiles/shapes.shp')
+shapes['zcta'] = shapes['zcta'].astype(int)
+shapes = pd.merge(shapes, pop, on = 'zcta')
+
+grid = get_point24deg_grid()
+grid = grid.to_crs("EPSG:3310")
+shapes = shapes.to_crs("EPSG:3310")
+shapes['zip_area'] = shapes.geometry.area
+
+#create new gdf with polygons representing the overlap areas
+intersections_gdf = gpd.overlay(grid, shapes, how='intersection')
+#calculate area of each small intersection polygon
+intersections_gdf['intersection_area'] = intersections_gdf.geometry.area
+intersections_gdf['overlap_percentage'] = intersections_gdf['intersection_area'] / intersections_gdf['zip_area']
+#apply overlap factor to variables
+intersections_gdf['pop_alloc'] = intersections_gdf['pop_total'] * intersections_gdf['overlap_percentage']
+intersections_gdf['hh_alloc'] = intersections_gdf['households_total'] * intersections_gdf['overlap_percentage']
+#aggregate to grid cells
+aggregated_data = intersections_gdf.groupby('cell_id')[['pop_alloc', 'hh_alloc']].sum().reset_index()
+final_gdf = grid.merge(aggregated_data, on='cell_id', how='left')
+final_gdf[['pop_alloc', 'hh_alloc']] = final_gdf[['pop_alloc', 'hh_alloc']].fillna(0)
+final_gdf = final_gdf.rename(columns={'pop_alloc': 'population', 'hh_alloc': 'households'})
+
+
+
+static_data = final_gdf.rename(columns = {"cell_id": "cell"}).set_index('cell')
+population_da = static_data['population'].to_xarray()
+households_da = static_data['households'].to_xarray()
+bad_cells = [71, 439, 461, 521]
+population_da = population_da.drop_sel(cell=bad_cells)
+households_da = households_da.drop_sel(cell=bad_cells)
+
+#Add to daily datasets
+in_dir = Path("Output_Preprocessed")
+in_pattern = "daily_gridded_CA_{year}.nc"
+for y in years:
+    in_path = in_dir / in_pattern.format(year=y)
+    ds = xr.load_dataset(in_path)
+    ds['population'] = population_da
+    ds['households'] = households_da
+    ds.to_netcdf(in_path)
+    ds.close()
+
+#Add to daily datasets
+in_dir = Path("Output_Preprocessed")
+in_pattern = "daily_gridded_CA_{year}.nc"
+for y in years:
+    in_path = in_dir / in_pattern.format(year=y)
+    ds = xr.load_dataset(in_path)
+    ds['population'] = population_da
+    ds['households'] = households_da
+    ds.to_netcdf(in_path)
+    ds.close()
+
+#Add to 6hr datasets
+#Add to daily datasets
+in_dir = Path("Output_Preprocessed")
+in_pattern = "6hr_gridded_CA_{year}.nc"
+for y in years:
+    in_path = in_dir / in_pattern.format(year=y)
+    ds = xr.load_dataset(in_path)
+    ds['population'] = population_da
+    ds['households'] = households_da
+    ds.to_netcdf(in_path)
+    ds.close()
+
+#done
